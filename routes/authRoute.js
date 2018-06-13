@@ -1,5 +1,5 @@
 const express = require('express');
-const { check, validationResult } = require('express-validator/check');
+const { check } = require('express-validator/check');
 const { matchedData, sanitize } = require('express-validator/filter');
 const app = express();
 const {
@@ -13,8 +13,9 @@ const {
   checkAuth,
   checkLogin,
   logout,
+  getMessages,
+  sendMessage,
 } = require('../controller/authCtrl');
-
 app.get('/', checkLogin, getLogin);
 app.get('/register', getRegister);
 app.get('/dashboard', checkAuth, getDashboard);
@@ -47,4 +48,7 @@ app.put(
   [check('_id').exists(), check('oldPassword').exists(), check('newPassword').exists()],
   change_password,
 );
+app.post('/getMessages', getMessages);
+app.post('/send_message', sendMessage);
+
 module.exports = app;

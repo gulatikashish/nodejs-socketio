@@ -8,11 +8,12 @@
 body {
   background: #c5ddeb;
   font: 14px/20px 'Lato', Arial, sans-serif;
-  position: fixed;
+  /* position: fixed; */
   color: white;
 }
 
 .container {
+  height: 100vh;
   margin: 0 auto;
   width: 100%;
   background: #444753;
@@ -41,7 +42,7 @@ body {
 }
 .people-list ul {
   padding: 20px;
-  height: 770px;
+  list-style: none;
 }
 .people-list ul li {
   padding-bottom: 20px;
@@ -62,6 +63,7 @@ body {
 
 .chat {
   width: calc(100% - 260px);
+  height: 100vh;
   float: left;
   background: #f2f5f8;
   border-top-right-radius: 5px;
@@ -209,4 +211,15 @@ body {
   content: ' ';
   clear: both;
   height: 0;
+}
+.itemName {
+  background: none;
+  border: none;
+}
+.logout {
+  text-align: right;
+}
+.messages {
+  height: 41rem;
+  overflow-y: scroll;
 }

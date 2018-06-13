@@ -8,6 +8,7 @@ const {
   getAllExceptOne,
   changeStatus,
 } = require('../models/services/userDbService');
+const { getMessage, insertMessage } = require('../models/services/chatDbService');
 
 const { encrypt, decrypt } = require('../common/services');
 
@@ -29,7 +30,7 @@ const getDashboard = async (req, res) => {
     }
     return d;
   });
-  return res.render('chat', { data: data });
+  return res.render('chat', { data: data, userId: req.session.data.id, userName: req.session.data.name });
 };
 
 const login = async (req, res) => {
@@ -47,7 +48,7 @@ const login = async (req, res) => {
     if (!encPassword) {
       return res.render('login', { danger: 'Invalid Credentials' });
     }
-    req.session.data = { id: check._id };
+    req.session.data = { id: check._id, name: check.name };
     await changeStatus(check._id, 1);
     return res.redirect('/dashboard');
   } catch (error) {
@@ -160,7 +161,28 @@ const logout = async (req, res) => {
   }
   return res.redirect('/');
 };
+const getMessages = async (req, res) => {
+  const { user_id } = req.body;
+  const login_id = req.session.data.id;
 
+  let result = await getMessage(user_id, login_id);
+  res.send(result);
+};
+const sendMessage = async (req, res) => {
+  const { sender_id, receiver_id, message } = req.body;
+  // let data = await findOneById(sender_id);
+  await insertMessage(sender_id, receiver_id, message);
+  res.send({
+    status: 'OK',
+  });
+};
+const getName = async obj => {
+  let data = await findOneById(obj.sender_id);
+  let sender_name = data.name;
+  obj.sender_name = sender_name;
+
+  return obj;
+};
 module.exports = {
   getLogin,
   getRegister,
@@ -172,4 +194,7 @@ module.exports = {
   checkAuth,
   checkLogin,
   logout,
+  getMessages,
+  sendMessage,
+  getName,
 };
