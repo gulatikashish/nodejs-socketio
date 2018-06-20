@@ -1,10 +1,45 @@
-var userClickedId, userClickedName, room;
+var socket = io.connect(window.location.host);
+var userClickedId, userClickedName, room_id, clicked;
+function notifyMe(sender_name) {
+  if (!('Notification' in window)) {
+    alert('This browser does not support desktop notification');
+  } else if (Notification.permission === 'granted') {
+    var options = {
+      body: 'This is the body of the notification' + sender_name,
+      icon: 'icon.jpg',
+      dir: 'ltr',
+    };
+    var notification = new Notification('Hi there', options);
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission(function(permission) {
+      if (!('permission' in Notification)) {
+        Notification.permission = permission;
+      }
+
+      if (permission === 'granted') {
+        var options = {
+          body: 'This is the body of the notification' + sender_name,
+          icon: 'icon.jpg',
+          dir: 'ltr',
+        };
+        var notification = new Notification('Hi there', options);
+      }
+    });
+  }
+}
 function userClicked(e) {
+  $(`#${clicked}`).css('color', 'white');
+  var userId = $('#userId').val();
   var feedback = $('.feedback');
   feedback.html('');
   $('.chat-with').text(e.target.value);
   userClickedId = e.target.id;
+  clicked = userClickedId;
   userClickedName = e.target.value;
+  room_id = $(`#room${userClickedId}`).val();
+  socket.emit('roomId', room_id);
+  $(`#${userClickedId}`).css('color', '#5f9fe4');
+
   $.ajax({
     url: '/getMessages',
     type: 'POST',
@@ -17,15 +52,24 @@ function userClicked(e) {
         var message_count = response.length;
         var html = '';
         for (var x = 0; x < message_count; x++) {
-          html +=
-            "<b><div class='msg'><div class='user'>" +
-            response[x].sender_id.name +
-            ':</b><br>' +
-            "</div><div class='txt'>" +
-            response[x]['message'] +
-            '</div></div>';
+          if (response[x].sender_id._id == userClickedId) {
+            html +=
+              "<b><div class='msg' style='background-color:#5f9fe4;border-radius: 25px;'><div class='user'>" +
+              response[x].sender_id.name +
+              ':</b><br>' +
+              "</div><div class='txt'>" +
+              response[x]['message'] +
+              '</div></div><br>';
+          } else {
+            html +=
+              "<b><div class='msg'  style='background-color: #58b666;left: 60rem;position: relative; border-radius: 25px;'><div class='user' >" +
+              response[x].sender_id.name +
+              ':</b><br>' +
+              "</div><div class='txt'>" +
+              response[x]['message'] +
+              '</div></div><br>';
+          }
         }
-
         $('.messages').html(html);
       } else {
         html = '';
@@ -35,49 +79,44 @@ function userClicked(e) {
   });
 }
 $(function() {
-  //make connection
-  var socket = io.connect(window.location.host);
   var userId = $('#userId').val();
   var userName = $('#userName').val();
-  socket.emit('socketid');
-  socket.on('socketid', data => {});
   socket.emit('userId', userId);
-  //buttons and inputs
   var message = $('#message');
   var username = $('#username');
   var send_message = $('#send_message');
   var send_username = $('#send_username');
   var chatroom = $('#chatroom');
   var feedback = $('.feedback');
-  console.log(';;;;;;;;;;', socket.id);
+  var e = document.querySelectorAll('.roomId');
+  for (var i = 0; i < e.length; i++) {
+    val = e[i].value;
+    if (!val.includes(':')) {
+      if (val < userId) {
+        e[i].value = `${val}:${userId}`;
+      } else {
+        e[i].value = `${userId}:${val}`;
+      }
+    }
+  }
   socket.on('change_status', data => {
-    console.log('=============================', data);
     if (data.status == 'online') {
       $(`#icon${data.id}`).css('color', 'green');
+      $(`.${data.id}`).css('color', '#f5f5f5');
     } else {
       $(`#icon${data.id}`).css('color', 'white');
+      $(`.${data.id}`).css('color', '#6a6c75');
     }
     $(`.${data.id}`).text(data.status);
   });
-  //Emit message
-  send_message.click(function() {
-    console.log('====', userId, userClickedId);
-    socket.emit('new_message', { message: message.val() });
-  });
-
-  //Listen on new_message
   socket.on('new_message', data => {
     feedback.html('');
     message.val('');
     chatroom.append("<p class='message'>" + data.username + ': ' + data.message + '</p>');
   });
-
-  //Emit a username
   send_username.click(function() {
     socket.emit('change_username', { username: username.val() });
   });
-
-  //Emit typing
   $('#message').focus(() => {
     if (message.val()) {
       socket.emit('typing', { userClickedId: userClickedId, loginId: userId, typing: 1 });
@@ -86,8 +125,6 @@ $(function() {
   $('#message').focusout(() => {
     socket.emit('typing', { userClickedId: userClickedId, loginId: userId, typing: 0 });
   });
-
-  //Listen on typing
   socket.on('typing', data => {
     if (data.userClickedId === userId && data.loginId === userClickedId) {
       if (data.typing == 0) {
@@ -102,7 +139,6 @@ $(function() {
     socket.emit('logout', userId);
     window.location.href = 'http://localhost:3000/logout';
   });
-
   $('#send-message').click(function() {
     var message = $.trim($('#message').val());
     if (message) {
@@ -118,6 +154,9 @@ $(function() {
         },
         success: function(response) {
           if (response.status == 'OK') {
+            if (userClickedId == userId) {
+              notifyMe(userClickedName);
+            }
             socket.emit('message', {
               sender_id: $('#userId').val(),
               message: message,
@@ -130,11 +169,29 @@ $(function() {
   });
 
   socket.on('send', function(data) {
+    console.log('----', room_id);
+
     var sender_id = data.sender_id;
     var sender_name = data.sender_name;
     var message = data.message;
-    var html =
-      "<div class='msg'><div class='user'>" + sender_name + "</div><div class='txt'>" + message + '</div></div>';
+    // if (userClickedId == userId) {
+    //   notifyMe(data.sender_name);
+    // }
+    if (sender_id == userClickedId) {
+      var html =
+        "<div class='msg' style='background-color:#5f9fe4;border-radius: 25px;'><b><div class='user'>" +
+        sender_name +
+        "</b></div><div class='txt'>" +
+        message +
+        '</div></div><br>';
+    } else {
+      var html =
+        "<div class='msg' style='background-color:#58b666; left: 60rem;position: relative; border-radius: 25px;'><div class='user'>" +
+        sender_name +
+        "</div><div class='txt'>" +
+        message +
+        '</div></div><br>';
+    }
     $('.messages').append(html);
   });
 });

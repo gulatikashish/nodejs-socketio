@@ -53,23 +53,21 @@ const server = app.listen(port, (err, data) => {
   }
 });
 const io = require('socket.io')(server);
-//listen on every connection
+let room_id;
 io.on('connection', socket => {
-  console.log('New user connected', socket.id);
-  socket.on('socketid', data => {
-    io.sockets.emit('socketid', { socket_id: socket.id });
+  socket.on('roomId', data => {
+    socket.join(data);
+    room_id = data;
   });
-  //default username
   socket.username = 'Anonymous';
   socket.on('message', async data => {
     let obj = await getName(data);
-    io.emit('send', obj);
+    console.log('room id', room_id);
+    io.sockets.in(room_id).emit('send', obj);
   });
   socket.on('typing', data => {
-    console.log('---', data);
     io.sockets.emit('typing', data);
   });
-  //listen on change_username
   socket.on('userId', data => {
     io.sockets.emit('change_status', { id: data, status: 'online', socket_id: socket.id });
   });
@@ -77,13 +75,10 @@ io.on('connection', socket => {
     io.sockets.emit('change_status', { id: data, status: 'offline' });
   });
 
-  //listen on new_message
   socket.on('new_message', data => {
-    //broadcast the new message
     io.sockets.emit('new_message', { message: data.message, username: socket.username });
   });
 
-  //listen on typing
   socket.on('typing', data => {
     socket.broadcast.emit('typing', { username: socket.username });
   });
