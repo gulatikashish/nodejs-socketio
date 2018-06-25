@@ -1,11 +1,11 @@
 var socket = io.connect(window.location.host);
 var userClickedId, userClickedName, room_id, clicked;
-function notifyMe(sender_name) {
+function notifyMe(sender_name, message) {
   if (!('Notification' in window)) {
     alert('This browser does not support desktop notification');
   } else if (Notification.permission === 'granted') {
     var options = {
-      body: 'This is the body of the notification' + sender_name,
+      body: 'there is the message from' + sender_name,
       icon: 'icon.jpg',
       dir: 'ltr',
     };
@@ -15,14 +15,13 @@ function notifyMe(sender_name) {
       if (!('permission' in Notification)) {
         Notification.permission = permission;
       }
-
       if (permission === 'granted') {
         var options = {
           body: 'This is the body of the notification' + sender_name,
           icon: 'icon.jpg',
           dir: 'ltr',
         };
-        var notification = new Notification('Hi there', options);
+        var notification = new Notification(message, options);
       }
     });
   }
@@ -39,7 +38,6 @@ function userClicked(e) {
   room_id = $(`#room${userClickedId}`).val();
   socket.emit('roomId', room_id);
   $(`#${userClickedId}`).css('color', '#5f9fe4');
-
   $.ajax({
     url: '/getMessages',
     type: 'POST',
@@ -81,7 +79,7 @@ function userClicked(e) {
 $(function() {
   var userId = $('#userId').val();
   var userName = $('#userName').val();
-  socket.emit('userId', userId);
+  socket.emit('userId', { userId, userName });
   var message = $('#message');
   var username = $('#username');
   var send_message = $('#send_message');
@@ -97,9 +95,12 @@ $(function() {
       } else {
         e[i].value = `${userId}:${val}`;
       }
+      console.log('---', e[i].value, '=====');
     }
+    console.log(val);
   }
   socket.on('change_status', data => {
+    console.log(data);
     if (data.status == 'online') {
       $(`#icon${data.id}`).css('color', 'green');
       $(`.${data.id}`).css('color', '#f5f5f5');
@@ -155,7 +156,7 @@ $(function() {
         success: function(response) {
           if (response.status == 'OK') {
             if (userClickedId == userId) {
-              notifyMe(userClickedName);
+              // notifyMe(userClickedName);
             }
             socket.emit('message', {
               sender_id: $('#userId').val(),
@@ -169,14 +170,15 @@ $(function() {
   });
 
   socket.on('send', function(data) {
-    console.log('----', room_id);
+    // console.log('----', room_id, userClickedId, userId);
 
     var sender_id = data.sender_id;
     var sender_name = data.sender_name;
     var message = data.message;
-    // if (userClickedId == userId) {
-    //   notifyMe(data.sender_name);
-    // }
+    console.log('----', room_id, '\nclicked--', userClickedId, '\n useris,', userId, '\nsenderid', sender_id);
+    if (userId != sender_id) {
+      notifyMe(data.sender_name, data.message);
+    }
     if (sender_id == userClickedId) {
       var html =
         "<div class='msg' style='background-color:#5f9fe4;border-radius: 25px;'><b><div class='user'>" +

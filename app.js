@@ -14,6 +14,7 @@ const { getName } = require('./controller/authCtrl');
 const port = config.port;
 const app = express();
 const helpers = require('handlebars-helpers')();
+let userIdarr = [];
 app.use(cors());
 app.use(
   session({
@@ -52,25 +53,35 @@ const server = app.listen(port, (err, data) => {
     console.log(`----- SERVER STARTED AT ${port} -----`);
   }
 });
+
 const io = require('socket.io')(server);
 let room_id;
+let userName;
+
 io.on('connection', socket => {
+  console.log(socket.id);
+  socket.on('userId', data => {
+    userIdarr.push(data.userId);
+    socket.userId = data.userId;
+    socket.userName = data.userName;
+    console.log(socket.userName);
+    io.sockets.emit('change_status', { id: data.userId, status: 'online', socket_id: socket.id });
+  });
   socket.on('roomId', data => {
     socket.join(data);
     room_id = data;
   });
-  socket.username = 'Anonymous';
+  socket.userName = userName;
   socket.on('message', async data => {
     let obj = await getName(data);
-    console.log('room id', room_id);
+    console.log('data', data);
+    console.log('arr', userIdarr);
     io.sockets.in(room_id).emit('send', obj);
   });
   socket.on('typing', data => {
     io.sockets.emit('typing', data);
   });
-  socket.on('userId', data => {
-    io.sockets.emit('change_status', { id: data, status: 'online', socket_id: socket.id });
-  });
+
   socket.on('logout', data => {
     io.sockets.emit('change_status', { id: data, status: 'offline' });
   });
@@ -81,6 +92,24 @@ io.on('connection', socket => {
 
   socket.on('typing', data => {
     socket.broadcast.emit('typing', { username: socket.username });
+  });
+
+  socket.on('sendNotification', data => {
+    console.log(data);
+  });
+  socket.on('disconnect', () => {
+    console.log('===', socket.id, socket.userName);
+    io.sockets.emit('change_status', { id: socket.userId, status: 'offline' });
+
+    // if (addedUser) {
+    //   --numUsers;
+
+    //   // echo globally that this client has left
+    //   socket.broadcast.emit('user left', {
+    //     username: socket.username,
+    //     numUsers: numUsers
+    //   });
+    // }
   });
 });
 
